@@ -23,9 +23,9 @@ int compress(int w, int h, char in_file[], char out_file[]);
 void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]);
 void ptrToMap(int h, int w, unsigned char *im_ptr, unsigned char im_map[h][w]);
 void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr);
-void sobel_x(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]);
-void sobel_y(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]);
-/* Functions definitions */ 
+void sobel(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]);
+
+/* Functions definitions */
 
 void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]) {
 	int i, j;
@@ -75,41 +75,59 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]
 }
 
 
-void sobel_x(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]) {
-	int i,j;
+void sobel(int h, int w, unsigned char** im_in[h][w], unsigned char** output_image[h][w]) {
 
-	/* Set edges to 0 */
-	
-	for (i=0; i<h; i++) {
-		im_out[i][0] = 0;
-		im_out[i][w-1] = 0;
+	unsigned char** sobel_dx = Make2DArray(3,3);
+
+  sobel_dx[0][0] = 1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = -1;
+  sobel_dx[1][0] = 2; sobel_dx[1][1] = 0;  sobel_dx[1][2] = -2;
+  sobel_dx[2][0] = 1; sobel_dx[2][1] = 0;  sobel_dx[2][2] = -1;
+
+	unsigned char** sobel_dy = Make2DArray(3,3);
+
+  sobel_dy[0][0] =  1; sobel_dy[0][1]  =  2; sobel_dy[0][2]   =  1;
+  sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
+  sobel_dy[2][0] = -1; sobel_dy[2][1]  = -2;  sobel_dy[2][2]  = -1;
+	int x,y;
+	unsigned char** output_image = Make2DArray(h,w);
+  unsigned char** y_gradient = Make2DArray(h,w);
+  unsigned char** x_gradient = Make2DArray(h,w);
+  for(x = 0; x < w; w++){
+    for(y = 0; y< h; y++){
+      output_image[y][x] = 0.0;
+      y_gradient[y][x] = 0.0;
+      x_gradient[y][x] = 0.0;
+    }
 	}
 
-	for (i=0; i<h; i++) {
-		for (j=0; j<w; j++) {
-			
-		}
-		
+	int p,k;
+  for(x = 1; x < w-1; x++){
+    for(y = 1; y < h-1; y++){
+      for(p= -1; p < 2; p++){
+        for(k=-1; k < 2 ; k++){
+          x_gradient[y][x]= x_gradient[y][x] + im_in[y+p][x+k]*sobel_dx[1+p][1+k]; // 1,1 is middle of sobel operator
+          y_gradient[y][x]= y_gradient[y][x] + im_in[y+p][x+k]*sobel_dy[1+p][1+k];
+        }
+      }
+      output_image[y][x] = sqrt(x_gradient[y][x]*x_gradient[y][x] + y_gradient[y][x]*y_gradient[y][x]); // ADDING x and y gradient
+    }
 	}
+	unsigned char max = 0;
+  for (x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      if(output_image[y][x] > max){
+        max = output_image[y][x];
+      }
+    }
+  }
+  /* Normalizing the array to values between 0-255 */
 
+  for (x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+        output_image[y][x] = output_image[y][x]*255/max;
+      }
+    }
 }
-
-
-void sobel_y(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]) {
-	int i,j;
-
-	for (j=0; j<w; j++) {
-
-	}
-
-	for (j=1;j<w; j++) {
-		im_out[0][j] = 0;
-		im_out[h-1][j] = 0;
-	}
-
-
-}
-
 
 
 void writeFile(int s, unsigned char *im ,char file[]) {
@@ -169,16 +187,16 @@ int decompress(char in_file[], unsigned char *im) {
 
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_decompress(&cinfo);
-    
+
     if (!file) {
     	fprintf(stderr,"Error reading %s \n", in_file);
      	return 0;
-    } 
+    }
 
     jpeg_stdio_src(&cinfo, file);
     jpeg_read_header(&cinfo, TRUE); // read jpeg file header
     jpeg_start_decompress(&cinfo); // decompress the file
-    
+
     cinfo.out_color_space = JCS_GRAYSCALE;
     x = cinfo.output_width;
     y = cinfo.output_height;
@@ -189,7 +207,7 @@ int decompress(char in_file[], unsigned char *im) {
     bmp_size = x * y * pixel_size;
 
     row_stride = x * pixel_size;
-    
+
     data_size = x*y;
 
     //jdata = (unsigned char *)malloc(data_size);
@@ -218,14 +236,14 @@ int decompress(char in_file[], unsigned char *im) {
 }
 
 int compress(int w, int h, char in_file[], char out_file[]) {
-	
+
 	int quality = 50;
 
   	//FILE *buffer = fopen("decompressed_file.bin","r");
   	//FILE *outfile = fopen("compressed_image.jpg", "wb");
 
 	FILE *buffer = fopen(in_file,"r");
-  	FILE *outfile = fopen(out_file, "wb");	
+  	FILE *outfile = fopen(out_file, "wb");
 
   	unsigned char *jdata;
   	// Jpeg compression object
@@ -233,9 +251,9 @@ int compress(int w, int h, char in_file[], char out_file[]) {
 
   	// For error handling
 	struct jpeg_error_mgr jerr;
- 
+
 	cinfo.err = jpeg_std_error(&jerr);
-	
+
 	jpeg_create_compress(&cinfo);
 
 	// Data destination module
@@ -255,7 +273,7 @@ int compress(int w, int h, char in_file[], char out_file[]) {
 	jpeg_start_compress(&cinfo, TRUE);
 
 	JSAMPROW row_pointer[1];          /* pointer to a single row */
- 	int i = 0; 
+ 	int i = 0;
 
  	int row_stride;			/* physical row width in buffer */
  	row_stride = cinfo.image_width * cinfo.input_components;	/* JSAMPLEs per row in image_buffer */
@@ -276,14 +294,15 @@ int compress(int w, int h, char in_file[], char out_file[]) {
 		row_pointer[0] = b;
 
 		jpeg_write_scanlines(&cinfo, row_pointer, 1);
-		   	    
+   /*
 	    printf("Scan line %d \n",cinfo.next_scanline);
 	    printf("next*row_stride %d \n", cinfo.next_scanline*row_stride);
+			*/
 	}
 
 	jpeg_finish_compress(&cinfo);
 	jpeg_destroy_compress(&cinfo);
-	
+
 	fclose(buffer);
 	fclose(outfile);
   	return 0;
@@ -296,7 +315,7 @@ void ptrToMap(int h, int w, unsigned char *im_ptr, unsigned char im_map[h][w]) {
 			im_map[i][j] = im_ptr[i*w+j];
 		}
 	}
-	printf("Image is rearranged to 2d map \n");
+	//printf("Image is rearranged to 2d map \n");
 }
 
 void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr) {
@@ -306,23 +325,31 @@ void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr) {
 			im_ptr[i*w+j] = im_map[i][j];
 		}
 	}
-	printf("Image is rearranged to ptr \n");
+	//printf("Image is rearranged to ptr \n");
 }
-
+/* Allocates memory to an array */
+unsigned char** Make2DArray(int arraySizeX,int arraySizeY){
+  unsigned char** theArray;
+  theArray = (unsigned char**) malloc(arraySizeX*sizeof(unsigned char*));
+  for(int i = 0;i < arraySizeX; i++){
+    theArray[i] = (unsigned char*) malloc(arraySizeY*sizeof(unsigned char));
+    }
+  return theArray;
+}
 
 /* Main program */
 int main(int argc, char **argv) {
 
 	int i, width, height, pixel_size, size;
 	unsigned char *decompressed_image, *compressed_image;
-	unsigned char *image_map_local;
-	
+
+
 	char filename[] = "grayimage.jpg";
 	char decompressed_file[] = "decompressed_file.bin";
 	char compressed_file[] = "compressed_file.jpg";
 
 	/* For parallelization */
-	int rc, P, rank, tag, subset_width, R, I;
+	int rc, P, rank, tag, subset_width, R, I,width_offset;
 
 	width = 512;
 	height = 512;
@@ -341,22 +368,15 @@ int main(int argc, char **argv) {
 	   fprintf(stdout, "The image is to narrow...\n");
 	   exit(1);
     }
-    
+
 	subset_width = width/P;		/* load balance */
-	R = N%P; 		/* remaining pixels */
-
-
-	if (rank==0 || rank==P) {
-		L += 1;
-	} else {
-		L += 2;
-	}
+	R = width%P; 		/* remaining pixels */
+	width_offset = rank*subset_width;
 
 	// Allocate memory
 	decompressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
 	compressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
-	image_map_local = (unsigned char *) \
-					 malloc(subset_width*height*size(unsigned char));
+
 
 	int done;
 	unsigned char image_map[width][height];
@@ -366,24 +386,54 @@ int main(int argc, char **argv) {
 	done = decompress(filename,decompressed_image);
 	//printImage(width,height,decompressed_image);
 	ptrToMap(height,width,decompressed_image,image_map);
+	/* Set local image map */
+	int x,y;
+	/* Three cases*/
+	if(rank == 0){
+		unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
+		for (x = width_offset ; x < subset_width + width_offset + 1  ; x++){ // Taking one extra column
+			for(y = 0; y < height ; y++){
+				image_map_local[y][x-width_offset] = image_map[y][x];
+			}
+		}
 
+	sobel(height,subset_width+1,image_map_local,detected_map);
 
+} else if (rank == P-1){
+	 unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
+	 for (x = width_offset - 1 ; x < subset_width + width_offset ; x++){ // Taking one extra column
+		 for(y = 0; y < height ; y++){
+			 image_map_local[y][x-width_offset+1] = image_map[y][x];
+		 }
+	 }
 
-	prewitt(height,width,image_map,detected_map);
-	
+	sobel(height,subset_width+1,image_map_local,detected_map);
+
+ } else{
+	 unsigned char ** image_map_local =  Make2DArray(height,subset_width+2);
+	 for (x = width_offset - 1 ; x < subset_width + width_offset + 1 ; x++){ // Taking one extra column
+		 for(y = 0; y < height ; y++){
+			 image_map_local[y][x-width_offset+1] = image_map[y][x];
+		 }
+	 }
+
+	sobel(height,subset_width+2,image_map_local,detected_map);
+ }
 
 	//done  = compress(compressed_file, decompressed_image);
+	/* Needs to send their data to the master process */
+	/*
 
 	if (rank ==0) {
 		mapToPtr(height,width,detected_map,decompressed_image);
 		writeFile(size,decompressed_image,decompressed_file);
 		done = compress(width, height, decompressed_file, compressed_file);
 	}
-	
+*/
 
 	/*
 	printImage(size, input_image);
-	
+
 	writeFile(size,input_file,input_image);
 	readFile(size, input_file, output_image);
 	printImage(size, output_image);
