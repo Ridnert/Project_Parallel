@@ -75,57 +75,56 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]
 }
 
 
-void sobel(int h, int w, unsigned char** im_in[h][w], unsigned char** output_image[h][w]) {
+void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h][w]) {
 
-	unsigned char** sobel_dx = Make2DArray(3,3);
+	unsigned char sobel_dx[3][3];
 
-  sobel_dx[0][0] = 1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = -1;
-  sobel_dx[1][0] = 2; sobel_dx[1][1] = 0;  sobel_dx[1][2] = -2;
-  sobel_dx[2][0] = 1; sobel_dx[2][1] = 0;  sobel_dx[2][2] = -1;
+  	sobel_dx[0][0] = 1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = -1;
+  	sobel_dx[1][0] = 2; sobel_dx[1][1] = 0;  sobel_dx[1][2] = -2;
+  	sobel_dx[2][0] = 1; sobel_dx[2][1] = 0;  sobel_dx[2][2] = -1;
 
-	unsigned char** sobel_dy = Make2DArray(3,3);
+	unsigned char sobel_dy[3][3];
 
-  sobel_dy[0][0] =  1; sobel_dy[0][1]  =  2; sobel_dy[0][2]   =  1;
-  sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
-  sobel_dy[2][0] = -1; sobel_dy[2][1]  = -2;  sobel_dy[2][2]  = -1;
-	int x,y;
-	unsigned char** output_image = Make2DArray(h,w);
-  unsigned char** y_gradient = Make2DArray(h,w);
-  unsigned char** x_gradient = Make2DArray(h,w);
-  for(x = 0; x < w; w++){
-    for(y = 0; y< h; y++){
-      output_image[y][x] = 0.0;
-      y_gradient[y][x] = 0.0;
-      x_gradient[y][x] = 0.0;
-    }
+  	sobel_dy[0][0] =  1; sobel_dy[0][1]  =  2; sobel_dy[0][2]   =  1;
+  	sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
+  	sobel_dy[2][0] = -1; sobel_dy[2][1]  = -2;  sobel_dy[2][2]  = -1;
+	int i,j;
+  	unsigned char y_gradient[h][w];
+  	unsigned char x_gradient[h][w];
+  	for(i = 0; i <h; i++){
+    	for(j=0; j<w; j++){
+      		output_image[i][j] = 0.0;
+      		y_gradient[i][j] = 0.0;
+      		x_gradient[i][j] = 0.0;
+    	}
 	}
 
 	int p,k;
-  for(x = 1; x < w-1; x++){
-    for(y = 1; y < h-1; y++){
-      for(p= -1; p < 2; p++){
-        for(k=-1; k < 2 ; k++){
-          x_gradient[y][x]= x_gradient[y][x] + im_in[y+p][x+k]*sobel_dx[1+p][1+k]; // 1,1 is middle of sobel operator
-          y_gradient[y][x]= y_gradient[y][x] + im_in[y+p][x+k]*sobel_dy[1+p][1+k];
-        }
-      }
-      output_image[y][x] = sqrt(x_gradient[y][x]*x_gradient[y][x] + y_gradient[y][x]*y_gradient[y][x]); // ADDING x and y gradient
-    }
+  	for(i = 1; i < h-1; i++){
+    	for(j = 1; j < w-1; j++){
+      		for(p= -1; p < 2; p++){
+        		for(k=-1; k < 2 ; k++){
+          			x_gradient[i][j]= x_gradient[i][j] + im_in[i+p][j+k]*sobel_dx[1+p][1+k]; // 1,1 is middle of sobel operator
+          			y_gradient[i][j]= y_gradient[i][j] + im_in[i+p][j+k]*sobel_dy[1+p][1+k];
+        		}
+      		}
+      		output_image[i][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
+    	}
 	}
 	unsigned char max = 0;
-  for (x = 0; x < w; x++){
-    for(y = 0; y < h; y++){
-      if(output_image[y][x] > max){
-        max = output_image[y][x];
-      }
-    }
-  }
-  /* Normalizing the array to values between 0-255 */
+  	for (i = 0; i < h; i++){
+    	for(j = 0; j < w; j++){
+      		if(output_image[i][j] > max){
+        		max = output_image[i][j];
+      		}
+    	}
+  	}
+  	/* Normalizing the array to values between 0-255 */
 
-  for (x = 0; x < w; x++){
-    for(y = 0; y < h; y++){
-        output_image[y][x] = output_image[y][x]*255/max;
-      }
+  	for (i = 0; i < h; i++){
+    	for(j = 0; j < w; j++){
+        	output_image[i][j] = output_image[i][j]*255/max;
+      	}
     }
 }
 
@@ -327,22 +326,12 @@ void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr) {
 	}
 	//printf("Image is rearranged to ptr \n");
 }
-/* Allocates memory to an array */
-unsigned char** Make2DArray(int arraySizeX,int arraySizeY){
-  unsigned char** theArray;
-  theArray = (unsigned char**) malloc(arraySizeX*sizeof(unsigned char*));
-  for(int i = 0;i < arraySizeX; i++){
-    theArray[i] = (unsigned char*) malloc(arraySizeY*sizeof(unsigned char));
-    }
-  return theArray;
-}
 
 /* Main program */
 int main(int argc, char **argv) {
 
-	int i, width, height, pixel_size, size;
-	unsigned char *decompressed_image, *compressed_image;
-
+	int i, j, width, height, pixel_size, size;
+	unsigned char *decompressed_image, *compressed_image, *decompressed_image_local;
 
 	char filename[] = "grayimage.jpg";
 	char decompressed_file[] = "decompressed_file.bin";
@@ -377,7 +366,6 @@ int main(int argc, char **argv) {
 	decompressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
 	compressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
 
-
 	int done;
 	unsigned char image_map[width][height];
 	unsigned char detected_map[width][height];
@@ -387,38 +375,45 @@ int main(int argc, char **argv) {
 	//printImage(width,height,decompressed_image);
 	ptrToMap(height,width,decompressed_image,image_map);
 	/* Set local image map */
-	int x,y;
+	
 	/* Three cases*/
+
+	/* If first process */
 	if(rank == 0){
-		unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
-		for (x = width_offset ; x < subset_width + width_offset + 1  ; x++){ // Taking one extra column
-			for(y = 0; y < height ; y++){
-				image_map_local[y][x-width_offset] = image_map[y][x];
+		unsigned char image_map_local[height][subset_width+1]; //=  Make2DArray(height,subset_width+1);
+		decompressed_image_local = (unsigned char*) malloc(height*(subset_width+1)*sizeof(unsigned char));
+		for (i=0; i<height; i++){
+			for (j=0; j<subset_width+1; j++){
+				image_map_local[i][j] = image_map[i][j];
+			}
+		}
+		sobel(height,subset_width+1,image_map_local,detected_map);
+		mapToPtr(height,subset_width+1,detected_map,decompressed_image_local);
+
+	} else if (rank == P-1){ 	/* If last process */
+	 	unsigned char image_map_local[height][subset_width+1]; // Taking one extra column
+	 	decompressed_image_local = (unsigned char*) malloc(height*(subset_width+1)*sizeof(unsigned char));
+	 	//unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
+	 	for (i=0; i<height; i++) { // Taking one extra column
+		 	for(j=width_offset-1; j<width ; j++) {
+			 	image_map_local[i][j-width_offset+1] = image_map[i][j];
 			}
 		}
 
-	sobel(height,subset_width+1,image_map_local,detected_map);
+		sobel(height,subset_width+1,image_map_local,detected_map);
+		mapToPtr(height,subset_width+1,detected_map,decompressed_image_local);
 
-} else if (rank == P-1){
-	 unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
-	 for (x = width_offset - 1 ; x < subset_width + width_offset ; x++){ // Taking one extra column
-		 for(y = 0; y < height ; y++){
-			 image_map_local[y][x-width_offset+1] = image_map[y][x];
-		 }
-	 }
-
-	sobel(height,subset_width+1,image_map_local,detected_map);
-
- } else{
-	 unsigned char ** image_map_local =  Make2DArray(height,subset_width+2);
-	 for (x = width_offset - 1 ; x < subset_width + width_offset + 1 ; x++){ // Taking one extra column
-		 for(y = 0; y < height ; y++){
-			 image_map_local[y][x-width_offset+1] = image_map[y][x];
-		 }
-	 }
-
-	sobel(height,subset_width+2,image_map_local,detected_map);
- }
+ 	} else {
+ 		unsigned char image_map_local[height][subset_width+2];
+ 		decompressed_image_local = (unsigned char*) malloc(height*(subset_width+2)*sizeof(unsigned char));
+		for (i=0 ; i<height+1 ; i++){ // Taking one extra column
+			for(j = width_offset-1; j < subset_width + width_offset + 1; j++){
+				image_map_local[i][j-width_offset+1] = image_map[i][j];
+			}
+		}
+		sobel(height,subset_width+2,image_map_local,detected_map);
+		mapToPtr(height,subset_width+2,detected_map,decompressed_image_local);
+ 	}
 
 	//done  = compress(compressed_file, decompressed_image);
 	/* Needs to send their data to the master process */
@@ -428,8 +423,11 @@ int main(int argc, char **argv) {
 		mapToPtr(height,width,detected_map,decompressed_image);
 		writeFile(size,decompressed_image,decompressed_file);
 		done = compress(width, height, decompressed_file, compressed_file);
+	} else {
+	
 	}
-*/
+
+	*/
 
 	/*
 	printImage(size, input_image);
@@ -439,6 +437,9 @@ int main(int argc, char **argv) {
 	printImage(size, output_image);
 
 	*/
-
+ 	MPI_Finalize();
+ 	free(compressed_image);
+ 	free(decompressed_image);
+ 	free(decompressed_image_local);
 	return 0;
 }
