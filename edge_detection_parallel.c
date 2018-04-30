@@ -75,7 +75,7 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]
 }
 
 
-void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h][w]) {
+void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h-2][w-2]) {
 
 	unsigned char sobel_dx[3][3];
 
@@ -93,7 +93,6 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
   	unsigned char x_gradient[h][w];
   	for(i = 0; i <h; i++){
     	for(j=0; j<w; j++){
-      		output_image[i][j] = 0.0;
       		y_gradient[i][j] = 0.0;
       		x_gradient[i][j] = 0.0;
     	}
@@ -108,12 +107,12 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
           			y_gradient[i][j]= y_gradient[i][j] + im_in[i+p][j+k]*sobel_dy[1+p][1+k];
         		}
       		}
-      		output_image[i][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
+      		output_image[i-1][j-1] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
     	}
 	}
 	unsigned char max = 0;
-  	for (i = 0; i < h; i++){
-    	for(j = 0; j < w; j++){
+  	for (i = 0; i < h-1; i++){
+    	for(j = 0; j < w-1; j++){
       		if(output_image[i][j] > max){
         		max = output_image[i][j];
       		}
@@ -121,8 +120,8 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
   	}
   	/* Normalizing the array to values between 0-255 */
 
-  	for (i = 0; i < h; i++){
-    	for(j = 0; j < w; j++){
+  	for (i = 0; i < h-1; i++){
+    	for(j = 0; j < w-1; j++){
         	output_image[i][j] = output_image[i][j]*255/max;
       	}
     }
@@ -338,7 +337,7 @@ int main(int argc, char **argv) {
 	char compressed_file[] = "compressed_file.jpg";
 
 	/* For parallelization */
-	int rc, P, rank, tag, subset_width, R, I,width_offset;
+	int rc, P, rank, tag, subset_height, R, I,height_offset;
 
 	width = 512;
 	height = 512;
@@ -358,9 +357,9 @@ int main(int argc, char **argv) {
 	   exit(1);
     }
 
-	subset_width = width/P;		/* load balance */
-	R = width%P; 		/* remaining pixels */
-	width_offset = rank*subset_width;
+	subset_height = height/P;		/* load balance */
+	R = height%P; 		/* remaining pixels */
+	height_offset = rank*subset_height;
 
 	// Allocate memory
 	decompressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
@@ -375,68 +374,61 @@ int main(int argc, char **argv) {
 	//printImage(width,height,decompressed_image);
 	ptrToMap(height,width,decompressed_image,image_map);
 	/* Set local image map */
-	
+
 	/* Three cases*/
 
 	/* If first process */
 	if(rank == 0){
-		unsigned char image_map_local[height][subset_width+1]; //=  Make2DArray(height,subset_width+1);
-		decompressed_image_local = (unsigned char*) malloc(height*(subset_width+1)*sizeof(unsigned char));
-		for (i=0; i<height; i++){
-			for (j=0; j<subset_width+1; j++){
-				image_map_local[i][j] = image_map[i][j];
+		unsigned char image_map_local[subset_height+1][width]; //=  Make2DArray(height,subset_width+1);
+		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
+		for (i=0; i < subset_height+1; i++){
+			for (j=0; j<width; j++){
+				image_map_local[i+1][j] = image_map[i][j];
 			}
 		}
-		sobel(height,subset_width+1,image_map_local,detected_map);
-		mapToPtr(height,subset_width+1,detected_map,decompressed_image_local);
+		for(j=0;j<width;j++){
+			image_map_local[0][j] = 0;
+		}
+
+		sobel(subset_height+2,width,image_map_local,detected_map);
+		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
 
 	} else if (rank == P-1){ 	/* If last process */
-	 	unsigned char image_map_local[height][subset_width+1]; // Taking one extra column
-	 	decompressed_image_local = (unsigned char*) malloc(height*(subset_width+1)*sizeof(unsigned char));
+	 	unsigned char image_map_local[subset_height+1][width]; // Taking one extra column
+	 	decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
 	 	//unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
-	 	for (i=0; i<height; i++) { // Taking one extra column
-		 	for(j=width_offset-1; j<width ; j++) {
-			 	image_map_local[i][j-width_offset+1] = image_map[i][j];
+	 	for (i=height_offset-1; i<height; i++) { // Taking one extra column
+		 	for(j=0; j < width ; j++) {
+			 	image_map_local[i-height_offset+2][j] = image_map[i][j];
 			}
 		}
+		for(j=0;j<width;j++){
+			image_map_local[height_offset+1][j] = 0;
+		}
 
-		sobel(height,subset_width+1,image_map_local,detected_map);
-		mapToPtr(height,subset_width+1,detected_map,decompressed_image_local);
+		sobel(subset_height+2,width,image_map_local,detected_map);
+		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
 
  	} else {
- 		unsigned char image_map_local[height][subset_width+2];
- 		decompressed_image_local = (unsigned char*) malloc(height*(subset_width+2)*sizeof(unsigned char));
-		for (i=0 ; i<height+1 ; i++){ // Taking one extra column
-			for(j = width_offset-1; j < subset_width + width_offset + 1; j++){
-				image_map_local[i][j-width_offset+1] = image_map[i][j];
+ 		unsigned char image_map_local[subset_height+2][width];
+ 		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
+		for (i = height_offset-1 ; i < height_offset+subset_height+1  ; i++){
+			for(j = 0; j < width; j++){
+				image_map_local[i-height_offset+1][j] = image_map[i][j];
 			}
 		}
-		sobel(height,subset_width+2,image_map_local,detected_map);
-		mapToPtr(height,subset_width+2,detected_map,decompressed_image_local);
+		sobel(subset_height+2,width,image_map_local,detected_map);
+		/*  */
+		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
  	}
 
-	//done  = compress(compressed_file, decompressed_image);
 	/* Needs to send their data to the master process */
-	/*
 
-	if (rank ==0) {
-		mapToPtr(height,width,detected_map,decompressed_image);
+		rc = MPI_Gather(&decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
+		if (rank ==0) {
 		writeFile(size,decompressed_image,decompressed_file);
 		done = compress(width, height, decompressed_file, compressed_file);
-	} else {
-	
 	}
-
-	*/
-
-	/*
-	printImage(size, input_image);
-
-	writeFile(size,input_file,input_image);
-	readFile(size, input_file, output_image);
-	printImage(size, output_image);
-
-	*/
  	MPI_Finalize();
  	free(compressed_image);
  	free(decompressed_image);
