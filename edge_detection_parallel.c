@@ -27,53 +27,7 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]);
 
 /* Functions definitions */
 
-void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]) {
-	int i, j;
-	/* For now, skip the outermost pixels */
-	int t1 , t2;
-	unsigned char min, max;
-	min = 255;
-	max = 0;
 
-	/* Set edges to 0 */
-
-	for (i=0;i<h; i++) {
-		out_im[i][0] = 0;
-		out_im[i][w-1] = 0;
-	}
-
-	for (j=1;j<w; j++) {
-		out_im[0][j] = 0;
-		out_im[h-1][j] = 0;
-	}
-
-	for (i=1; i<h-1; i++) {
-		for (j=1; j<w-1; j++) {
-			t1 = im_in[i+1][j-1]-im_in[i-1][j-1]+
-				im_in[i+1][j]-im_in[i-1][j]+
-				im_in[i+1][j+1]-im_in[i-1][j+1];
-			t2 = im_in[i-1][j+1]-im_in[i-1][j-1]+
-				im_in[i][j+1]-im_in[i][j-1]+
-				im_in[i+1][j+1]-im_in[i+1][j-1];
-			//out_im[i][j] = abs(t1) + abs(t2);
-			out_im[i][j] = sqrt((t1*t1)+(t2*t2));
-
-			if (out_im[i][j] < min) {
-				min = out_im[i][j];
-			}
-			if (out_im[i][j] > max) {
-				max = out_im[i][j];
-			}
-		}
-	}
-
-	/* Scale the values */
-	for (i=0; i<h; i++) {
-		for (j=0; j<w; j++) {
-			out_im[i][j] = 255*(out_im[i][j]-min)/(max-min);
-		}
-	}
-}
 
 
 void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h][w]) {
@@ -328,6 +282,59 @@ void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr) {
 	//printf("Image is rearranged to ptr \n");
 }
 
+
+void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][w]) {
+
+	//printf("Height")
+	int i, j;
+	/* For now, skip the outermost pixels */
+	int t1 , t2;
+	unsigned char min, max;
+	min = 255;
+	max = 0;
+
+	/* Set edges to 0 */
+
+	for (i=0;i<h; i++) {
+		out_im[i][0] = 0;
+		out_im[i][w-1] = 0;
+	}
+/*
+	for (j=0;j<w; j++) {
+		out_im[0][j] = 0;
+		out_im[h-1][j] = 0;
+	}
+	*/
+
+	for (i=1; i<h-1; i++) {
+		for (j=1; j<w-1; j++) {
+			t1 = im_in[i+1][j-1]-im_in[i-1][j-1]+
+				im_in[i+1][j]-im_in[i-1][j]+
+				im_in[i+1][j+1]-im_in[i-1][j+1];
+			t2 = im_in[i-1][j+1]-im_in[i-1][j-1]+
+				im_in[i][j+1]-im_in[i][j-1]+
+				im_in[i+1][j+1]-im_in[i+1][j-1];
+			//out_im[i][j] = abs(t1) + abs(t2);
+			out_im[i-1][j-1] = sqrt((t1*t1)+(t2*t2));
+
+			if (out_im[i-1][j-1] < min) {
+				min = out_im[i-1][j-1];
+			}
+			if (out_im[i-1][j-1] > max) {
+				max = out_im[i-1][j-1];
+			}
+		}
+	}
+
+	/* Scale the values */
+	for (i=0; i<h-1; i++) {
+		for (j=0; j<w; j++) {
+			out_im[i][j] = 255*(out_im[i][j]-min)/(max-min);
+		}
+	}
+}
+
+
 /* Main program */
 int main(int argc, char **argv) {
 
@@ -347,17 +354,17 @@ int main(int argc, char **argv) {
 	size = width*height*pixel_size;
 
 	MPI_Status status;
-    tag = 100;
+  tag = 100;
 
-    /* Initialize MPI */
-    rc = MPI_Init(&argc, &argv);
-    rc = MPI_Comm_size(MPI_COMM_WORLD, &P);
-    rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  /* Initialize MPI */
+  rc = MPI_Init(&argc, &argv);
+  rc = MPI_Comm_size(MPI_COMM_WORLD, &P);
+  rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (width < P) {
+  if (width < P) {
 	   fprintf(stdout, "The image is to narrow...\n");
 	   exit(1);
-    }
+  }
 
 	subset_height = height/P;		/* load balance */
 	R = height%P; 		/* remaining pixels */
@@ -368,8 +375,9 @@ int main(int argc, char **argv) {
 	compressed_image = (unsigned char *) malloc(size*sizeof(unsigned char));
 
 	int done;
-	unsigned char image_map[width][height];
-	unsigned char detected_map[width][height];
+	unsigned char image_map[height][width];
+
+	//unsigned char detected_map[width][height];
 
 	// Decompress file
 	done = decompress(filename,decompressed_image);
@@ -381,38 +389,35 @@ int main(int argc, char **argv) {
 
 	/* If first process */
 	if(rank == 0){
-		unsigned char image_map_local[subset_height+2][width]; //=  Make2DArray(height,subset_width+1);
-		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
+		unsigned char image_map_local[subset_height+1][width];
+		unsigned char detected_map[subset_height-1][width];
+		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+1)*sizeof(unsigned char));
 		for (i=0; i < subset_height+1; i++){
 			for (j=0; j<width; j++){
-				image_map_local[i+1][j] = image_map[i][j];
+				image_map_local[i][j] = image_map[i][j];
 			}
 		}
-		for(j=0;j<width;j++){
-			image_map_local[0][j] = 0;
-		}
 
-		prewitt(subset_height+2,width,image_map_local,detected_map);
-		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
+		prewitt(subset_height+1,width,image_map_local,detected_map);
+		mapToPtr(subset_height-1,width,detected_map,decompressed_image);
 
 	} else if (rank == P-1){ 	/* If last process */
-	 	unsigned char image_map_local[subset_height+2][width]; // Taking one extra column
-	 	decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
+	 	unsigned char image_map_local[subset_height+1][width]; // Taking one extra column
+		unsigned char detected_map[subset_height-1][width];
+	 	decompressed_image_local = (unsigned char*) malloc(width*(subset_height+1)*sizeof(unsigned char));
 	 	//unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
 	 	for (i=height_offset-1; i<height; i++) { // Taking one extra column
 		 	for(j=0; j < width ; j++) {
-			 	image_map_local[i-height_offset+2][j] = image_map[i][j];
+			 	image_map_local[i-height_offset+1][j] = image_map[i][j];
 			}
 		}
-		for(j=0;j<width;j++){
-			image_map_local[height_offset+1][j] = 0;
-		}
 
-		prewitt(subset_height+2,width,image_map_local,detected_map);
-		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
+		prewitt(subset_height+1,width,image_map_local,detected_map);
+		mapToPtr(subset_height-1,width,detected_map,decompressed_image_local);
 
  	} else {
  		unsigned char image_map_local[subset_height+2][width];
+		unsigned char detected_map[subset_height][width];
  		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
 		for (i = height_offset-1 ; i < height_offset+subset_height+1  ; i++){
 			for(j = 0; j < width; j++){
@@ -421,19 +426,35 @@ int main(int argc, char **argv) {
 		}
 		prewitt(subset_height+2,width,image_map_local,detected_map);
 		/*  */
-		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
+		mapToPtr(subset_height,width,detected_map,decompressed_image_local);
  	}
 
-	/* Needs to send their data to the master process */
 
-		rc = MPI_Gather(decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
-		if (rank ==0) {
-		writeFile((height-2)*(width-2),decompressed_image,decompressed_file);
-		done = compress(width, height, decompressed_file, compressed_file);
+	if (P>1) {
+		int offset = (subset_height-1)*width;
+		if(rank != 0 ){
+			if(rank == P-1) {
+				MPI_Send(&decompressed_image_local[0],(subset_height-1)*width,MPI_UNSIGNED_CHAR,0,tag,MPI_COMM_WORLD);
+			} else {
+				MPI_Send(&decompressed_image_local[0],(subset_height)*width,MPI_UNSIGNED_CHAR,0,tag,MPI_COMM_WORLD);
+			}
+		} else{
+			for (i = 1; i<P-1; i++){
+					MPI_Recv(&decompressed_image[offset],(subset_height)*width,MPI_UNSIGNED_CHAR,i,tag,MPI_COMM_WORLD,&status);
+					offset += subset_height*width;
+			}
+			MPI_Recv(&decompressed_image[offset],(subset_height-1)*width,MPI_UNSIGNED_CHAR,P-1,tag,MPI_COMM_WORLD,&status);
+		}
 	}
- 	MPI_Finalize();
- 	free(compressed_image);
- 	free(decompressed_image);
- 	free(decompressed_image_local);
-	return 0;
+		//rc = MPI_Gatherv(decompressed_image_local,scount,MPI_UNSIGNED_CHAR,decompressed_image,rcount,displs,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
+		//rc = MPI_Gather(decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
+		if (rank ==0) {
+			writeFile(size,decompressed_image,decompressed_file);
+			done = compress(width, height, decompressed_file, compressed_file);
+		}
+ 		MPI_Finalize();
+ 		free(compressed_image);
+ 		free(decompressed_image);
+ 		free(decompressed_image_local);
+		return 0;
 }
