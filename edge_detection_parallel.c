@@ -36,6 +36,7 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]
 	max = 0;
 
 	/* Set edges to 0 */
+
 	for (i=0;i<h; i++) {
 		out_im[i][0] = 0;
 		out_im[i][w-1] = 0;
@@ -67,15 +68,15 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h][w]
 	}
 
 	/* Scale the values */
-	for (i=1; i<h-1; i++) {
-		for (j=1; j<w-1; j++) {
+	for (i=0; i<h; i++) {
+		for (j=0; j<w; j++) {
 			out_im[i][j] = 255*(out_im[i][j]-min)/(max-min);
 		}
 	}
 }
 
 
-void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h-2][w-2]) {
+void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h][w]) {
 
 	unsigned char sobel_dx[3][3];
 
@@ -93,6 +94,7 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
   	unsigned char x_gradient[h][w];
   	for(i = 0; i <h; i++){
     	for(j=0; j<w; j++){
+				output_image[i][j] = 0.0;
       		y_gradient[i][j] = 0.0;
       		x_gradient[i][j] = 0.0;
     	}
@@ -107,12 +109,12 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
           			y_gradient[i][j]= y_gradient[i][j] + im_in[i+p][j+k]*sobel_dy[1+p][1+k];
         		}
       		}
-      		output_image[i-1][j-1] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
+      		output_image[i][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
     	}
 	}
 	unsigned char max = 0;
-  	for (i = 0; i < h-1; i++){
-    	for(j = 0; j < w-1; j++){
+  	for (i = 0; i < h; i++){
+    	for(j = 0; j < w; j++){
       		if(output_image[i][j] > max){
         		max = output_image[i][j];
       		}
@@ -120,8 +122,8 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
   	}
   	/* Normalizing the array to values between 0-255 */
 
-  	for (i = 0; i < h-1; i++){
-    	for(j = 0; j < w-1; j++){
+  	for (i = 0; i < h; i++){
+    	for(j = 0; j < w; j++){
         	output_image[i][j] = output_image[i][j]*255/max;
       	}
     }
@@ -379,7 +381,7 @@ int main(int argc, char **argv) {
 
 	/* If first process */
 	if(rank == 0){
-		unsigned char image_map_local[subset_height+1][width]; //=  Make2DArray(height,subset_width+1);
+		unsigned char image_map_local[subset_height+2][width]; //=  Make2DArray(height,subset_width+1);
 		decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
 		for (i=0; i < subset_height+1; i++){
 			for (j=0; j<width; j++){
@@ -390,11 +392,11 @@ int main(int argc, char **argv) {
 			image_map_local[0][j] = 0;
 		}
 
-		sobel(subset_height+2,width,image_map_local,detected_map);
+		prewitt(subset_height+2,width,image_map_local,detected_map);
 		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
 
 	} else if (rank == P-1){ 	/* If last process */
-	 	unsigned char image_map_local[subset_height+1][width]; // Taking one extra column
+	 	unsigned char image_map_local[subset_height+2][width]; // Taking one extra column
 	 	decompressed_image_local = (unsigned char*) malloc(width*(subset_height+2)*sizeof(unsigned char));
 	 	//unsigned char ** image_map_local =  Make2DArray(height,subset_width+1);
 	 	for (i=height_offset-1; i<height; i++) { // Taking one extra column
@@ -406,7 +408,7 @@ int main(int argc, char **argv) {
 			image_map_local[height_offset+1][j] = 0;
 		}
 
-		sobel(subset_height+2,width,image_map_local,detected_map);
+		prewitt(subset_height+2,width,image_map_local,detected_map);
 		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
 
  	} else {
@@ -417,16 +419,16 @@ int main(int argc, char **argv) {
 				image_map_local[i-height_offset+1][j] = image_map[i][j];
 			}
 		}
-		sobel(subset_height+2,width,image_map_local,detected_map);
+		prewitt(subset_height+2,width,image_map_local,detected_map);
 		/*  */
 		mapToPtr(subset_height+2,width,detected_map,decompressed_image_local);
  	}
 
 	/* Needs to send their data to the master process */
 
-		rc = MPI_Gather(&decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
+		rc = MPI_Gather(decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
 		if (rank ==0) {
-		writeFile(size,decompressed_image,decompressed_file);
+		writeFile((height-2)*(width-2),decompressed_image,decompressed_file);
 		done = compress(width, height, decompressed_file, compressed_file);
 	}
  	MPI_Finalize();
