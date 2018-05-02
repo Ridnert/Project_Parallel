@@ -28,62 +28,6 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char im_out[h][w]);
 /* Functions definitions */
 
 
-
-
-void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h][w]) {
-
-	unsigned char sobel_dx[3][3];
-
-  	sobel_dx[0][0] = 1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = -1;
-  	sobel_dx[1][0] = 2; sobel_dx[1][1] = 0;  sobel_dx[1][2] = -2;
-  	sobel_dx[2][0] = 1; sobel_dx[2][1] = 0;  sobel_dx[2][2] = -1;
-
-	unsigned char sobel_dy[3][3];
-
-  	sobel_dy[0][0] =  1; sobel_dy[0][1]  =  2; sobel_dy[0][2]   =  1;
-  	sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
-  	sobel_dy[2][0] = -1; sobel_dy[2][1]  = -2;  sobel_dy[2][2]  = -1;
-	int i,j;
-  	unsigned char y_gradient[h][w];
-  	unsigned char x_gradient[h][w];
-  	for(i = 0; i <h; i++){
-    	for(j=0; j<w; j++){
-				output_image[i][j] = 0.0;
-      		y_gradient[i][j] = 0.0;
-      		x_gradient[i][j] = 0.0;
-    	}
-	}
-
-	int p,k;
-  	for(i = 1; i < h-1; i++){
-    	for(j = 1; j < w-1; j++){
-      		for(p= -1; p < 2; p++){
-        		for(k=-1; k < 2 ; k++){
-          			x_gradient[i][j]= x_gradient[i][j] + im_in[i+p][j+k]*sobel_dx[1+p][1+k]; // 1,1 is middle of sobel operator
-          			y_gradient[i][j]= y_gradient[i][j] + im_in[i+p][j+k]*sobel_dy[1+p][1+k];
-        		}
-      		}
-      		output_image[i][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
-    	}
-	}
-	unsigned char max = 0;
-  	for (i = 0; i < h; i++){
-    	for(j = 0; j < w; j++){
-      		if(output_image[i][j] > max){
-        		max = output_image[i][j];
-      		}
-    	}
-  	}
-  	/* Normalizing the array to values between 0-255 */
-
-  	for (i = 0; i < h; i++){
-    	for(j = 0; j < w; j++){
-        	output_image[i][j] = output_image[i][j]*255/max;
-      	}
-    }
-}
-
-
 void writeFile(int s, unsigned char *im ,char file[]) {
 	printf("Writing to file...\n");
 	printf("Size is %d \n", s);
@@ -283,6 +227,68 @@ void mapToPtr(int h, int w, unsigned char im_map[h][w], unsigned char *im_ptr) {
 }
 
 
+void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h-2][w]) {
+
+	unsigned char sobel_dx[3][3];
+
+  	sobel_dx[0][0] = 1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = -1;
+  	sobel_dx[1][0] = 2; sobel_dx[1][1] = 0;  sobel_dx[1][2] = -2;
+  	sobel_dx[2][0] = 1; sobel_dx[2][1] = 0;  sobel_dx[2][2] = -1;
+
+	unsigned char sobel_dy[3][3];
+
+  	sobel_dy[0][0] =  1; sobel_dy[0][1]  =  2; sobel_dy[0][2]   =  1;
+  	sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
+  	sobel_dy[2][0] = -1; sobel_dy[2][1]  = -2;  sobel_dy[2][2]  = -1;
+	int i,j;
+	for (i=0;i<h-2; i++) {
+		output_image[i][0] = 0;
+		output_image[i][w-1] = 0;
+	}
+  	unsigned char y_gradient[h][w];
+  	unsigned char x_gradient[h][w];
+  	for(i = 0; i <h; i++){
+    	for(j=0; j<w; j++){
+
+      		y_gradient[i][j] = 0;
+      		x_gradient[i][j] = 0;
+    	}
+	}
+
+	int p,k;
+  	for(i = 1; i < h-1; i++){
+    	for(j = 1; j < w-1; j++){
+      		for(p= -1; p < 2; p++){
+        		for(k=-1; k < 2 ; k++){
+          			x_gradient[i][j]= x_gradient[i][j] + im_in[i+p][j+k]*sobel_dx[1+p][1+k]; // 1,1 is middle of sobel operator
+          			y_gradient[i][j]= y_gradient[i][j] + im_in[i+p][j+k]*sobel_dy[1+p][1+k];
+        		}
+      		}
+      		output_image[i-1][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
+    	}
+	}
+	unsigned char max = 0;
+	unsigned char min = 255;
+  	for (i = 0; i < h-2; i++){
+    	for(j = 0; j < w; j++){
+      		if(output_image[i][j] > max){
+        		max = output_image[i][j];
+      		}
+					if(output_image[i][j] < min){
+        		min = output_image[i][j];
+      		}
+
+    	}
+  	}
+  	/* Normalizing the array to values between 0-255 */
+
+  	for (i = 0; i < h-2; i++){
+    	for(j = 0; j < w; j++){
+        	output_image[i][j] = 255*(output_image[i][j]-min)/(max-min);
+      	}
+    }
+}
+/* PRWEWITT OPERATOR */
 void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][w]) {
 
 	//printf("Height")
@@ -295,7 +301,7 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][
 
 	/* Set edges to 0 */
 
-	for (i=0;i<h; i++) {
+	for (i=0;i<h-2; i++) {
 		out_im[i][0] = 0;
 		out_im[i][w-1] = 0;
 	}
@@ -315,19 +321,19 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][
 				im_in[i][j+1]-im_in[i][j-1]+
 				im_in[i+1][j+1]-im_in[i+1][j-1];
 			//out_im[i][j] = abs(t1) + abs(t2);
-			out_im[i-1][j-1] = sqrt((t1*t1)+(t2*t2));
+			out_im[i-1][j] = sqrt((t1*t1)+(t2*t2));
 
-			if (out_im[i-1][j-1] < min) {
+			if (out_im[i-1][j] < min) {
 				min = out_im[i-1][j-1];
 			}
-			if (out_im[i-1][j-1] > max) {
-				max = out_im[i-1][j-1];
+			if (out_im[i-1][j] > max) {
+				max = out_im[i-1][j];
 			}
 		}
 	}
 
 	/* Scale the values */
-	for (i=0; i<h-1; i++) {
+	for (i=0; i<h-2; i++) {
 		for (j=0; j<w; j++) {
 			out_im[i][j] = 255*(out_im[i][j]-min)/(max-min);
 		}
