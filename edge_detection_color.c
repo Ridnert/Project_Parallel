@@ -130,7 +130,7 @@ int decompress(char in_file[], unsigned char *im) {
 
 int compress(int w, int h, char in_file[], char out_file[]) {
 
-	int quality = 50;
+	//int quality = 50;
 
   	//FILE *buffer = fopen("decompressed_file.bin","r");
   	//FILE *outfile = fopen("compressed_image.jpg", "wb");
@@ -229,7 +229,7 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
 		output_image[i][0] = 0;
 		output_image[i][w-1] = 0;
 	}
-
+/*
 	int sobel_dx[3][3];
 
   	sobel_dx[0][0] = -1; sobel_dx[0][1] = 0; sobel_dx[0][2]  = 1;
@@ -242,11 +242,12 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
   	sobel_dy[1][0] =  0; sobel_dy[1][1]  =  0;  sobel_dy[1][2]  =  0;
   	sobel_dy[2][0] = 1; sobel_dy[2][1]  = 1;  sobel_dy[2][2]  = 1;
 
-  	int y_gradient[h][w];
-  	int x_gradient[h][w];
+
+		int x_gradient[h][w];
+		int y_gradient[h][w];
+
   	for(i = 0; i <h; i++){
     	for(j=0; j<w; j++){
-
       		y_gradient[i][j] = 0;
       		x_gradient[i][j] = 0;
     	}
@@ -264,20 +265,21 @@ void sobel(int h, int w, unsigned char im_in[h][w], unsigned char output_image[h
       		output_image[i-1][j] = sqrt(x_gradient[i][j]*x_gradient[i][j] + y_gradient[i][j]*y_gradient[i][j]); // ADDING x and y gradient
     	}
 	}
-	/*
-	int t1 , t2;
+	*/
+
+	int dy , dx;
 	for (i=1; i<h-1; i++) {
 		for (j=1; j<w-1; j++) {
-			t1 = im_in[i+1][j-1]-im_in[i-1][j-1]+
-				im_in[i+1][j]-im_in[i-1][j]+
+			dy = im_in[i+1][j-1]-im_in[i-1][j-1]+
+				2*im_in[i+1][j]-2*im_in[i-1][j]+
 				im_in[i+1][j+1]-im_in[i-1][j+1];
-			t2 = im_in[i-1][j+1]-im_in[i-1][j-1]+
-				im_in[i][j+1]-im_in[i][j-1]+
+			dx = im_in[i-1][j+1]-im_in[i-1][j-1]+
+				2*im_in[i][j+1]-2*im_in[i][j-1]+
 				im_in[i+1][j+1]-im_in[i+1][j-1];
 			//out_im[i][j] = abs(t1) + abs(t2);
-			output_image[i-1][j] = sqrt((t1*t1)+(t2*t2));
+			output_image[i-1][j] = sqrt((dx*dx)+(dy*dy));
+		}
 	}
-}*/
 	unsigned char max = 0;
 	unsigned char min = 255;
   	for (i = 0; i < h-2; i++){
@@ -305,7 +307,7 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][
 	//printf("Height")
 	int i, j;
 	/* For now, skip the outermost pixels */
-	int t1 , t2;
+	int dy, dx;
 	unsigned char min, max;
 	min = 255;
 	max = 0;
@@ -325,14 +327,14 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][
 
 	for (i=1; i<h-1; i++) {
 		for (j=1; j<w-1; j++) {
-			t1 = im_in[i+1][j-1]-im_in[i-1][j-1]+
+			dy = im_in[i+1][j-1]-im_in[i-1][j-1]+
 				im_in[i+1][j]-im_in[i-1][j]+
 				im_in[i+1][j+1]-im_in[i-1][j+1];
-			t2 = im_in[i-1][j+1]-im_in[i-1][j-1]+
+			dx = im_in[i-1][j+1]-im_in[i-1][j-1]+
 				im_in[i][j+1]-im_in[i][j-1]+
 				im_in[i+1][j+1]-im_in[i+1][j-1];
 			//out_im[i][j] = abs(t1) + abs(t2);
-			out_im[i-1][j] = sqrt((t1*t1)+(t2*t2));
+			out_im[i-1][j] = sqrt((dy*dy)+(dx*dx));
 
 			if (out_im[i-1][j] < min) {
 				min = out_im[i-1][j-1];
@@ -355,7 +357,7 @@ void prewitt(int h, int w, unsigned char im_in[h][w], unsigned char out_im[h-2][
 void convertToGray(int s,unsigned char * im_in, unsigned char *im_out) {
 	int i;
 	for (i=0; i<s/3; i++) {
-		im_out[i] = 0.299*im_in[3*i] + 0.333*im_in[(3*i)+1] + 0.5*im_in[(3*i)+2];
+		im_out[i] = 0.2126*im_in[3*i] + 0.7152*im_in[(3*i)+1] + 0.0722*im_in[(3*i)+2];
 	}
 }
 
@@ -368,15 +370,15 @@ int main(int argc, char **argv) {
 	unsigned char *converted_image;
 
 
-	char filename[] = "lion.jpg";
+	char filename[] = "koala1.jpeg";
 	char decompressed_file[] = "decompressed_file.bin";
 	char compressed_file[] = "compressed_file.jpg";
 
 	/* For parallelization */
 	int rc, P, rank, tag, subset_height, R, I,height_offset;
 
-	width = 900;
-	height = 642;
+	width = 2000;
+	height = 1250;
 	pixel_size = 3;
 	size = width*height*pixel_size;
 
@@ -481,9 +483,9 @@ int main(int argc, char **argv) {
 		//rc = MPI_Gatherv(decompressed_image_local,scount,MPI_UNSIGNED_CHAR,decompressed_image,rcount,displs,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
 		//rc = MPI_Gather(decompressed_image_local,subset_height*width,MPI_UNSIGNED_CHAR,decompressed_image,subset_height*width,MPI_UNSIGNED_CHAR,0,MPI_COMM_WORLD);
 		if (rank ==0) {
-			writeFile(width*height,decompressed_image,decompressed_file);
+			writeFile(width*(height-2),decompressed_image,decompressed_file);
 			//writeFile(size,decompressed_image,decompressed_file);
-			done = compress(width, height, decompressed_file, compressed_file);
+			done = compress(width, height-2, decompressed_file, compressed_file);
 		}
 
  		MPI_Finalize();
